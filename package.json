@@ -1,0 +1,25 @@
+{
+  "name": "tsp-triager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "triage": "tsx src/triage.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lzutf8": "^0.6.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "~5.7.0",
+    "vite": "^6.0.0",
+    "tsx": "^4.0.0"
+  }
+}

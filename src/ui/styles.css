@@ -1,0 +1,376 @@
+/* ── Reset & Base ──────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  line-height: 1.5;
+}
+
+a {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ── App Layout ───────────────────────────────────────────────────────────── */
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #30363d;
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.header-meta {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 13px;
+  color: #8b949e;
+}
+
+.reset-btn {
+  background: #21262d;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.reset-btn:hover {
+  background: #30363d;
+}
+
+/* ── Drop Zone ────────────────────────────────────────────────────────────── */
+
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  border: 2px dashed #30363d;
+  border-radius: 12px;
+  margin-top: 48px;
+  cursor: pointer;
+}
+
+.drop-zone:hover {
+  border-color: #58a6ff;
+  background: #161b22;
+}
+
+.drop-zone-content {
+  text-align: center;
+}
+
+.drop-zone-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.drop-zone-or {
+  color: #8b949e;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.file-input-label {
+  display: inline-block;
+  padding: 8px 20px;
+  background: #238636;
+  color: white;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.file-input-label:hover {
+  background: #2ea043;
+}
+
+.error {
+  color: #f85149;
+  margin-top: 16px;
+}
+
+/* ── Summary ──────────────────────────────────────────────────────────────── */
+
+.summary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.stat-group {
+  flex: 1;
+  min-width: 250px;
+}
+
+.stat-group h3 {
+  font-size: 13px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.stat-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-top: 3px solid #30363d;
+  border-radius: 6px;
+  padding: 12px 16px;
+  min-width: 100px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #8b949e;
+  margin-top: 2px;
+}
+
+/* ── Filters ──────────────────────────────────────────────────────────────── */
+
+.table-container {
+  margin-top: 8px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 6px 12px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  font-size: 14px;
+}
+
+.search-input:focus {
+  border-color: #58a6ff;
+  outline: none;
+}
+
+.filters select {
+  padding: 6px 12px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  font-size: 13px;
+}
+
+.filter-count {
+  font-size: 13px;
+  color: #8b949e;
+  margin-left: 8px;
+}
+
+/* ── Table ────────────────────────────────────────────────────────────────── */
+
+.issue-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.issue-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #30363d;
+  color: #8b949e;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.issue-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.issue-table th.sortable:hover {
+  color: #e6edf3;
+}
+
+.issue-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #21262d;
+  vertical-align: top;
+}
+
+.issue-table tbody tr:hover {
+  background: #161b22;
+}
+
+.title-cell {
+  max-width: 400px;
+}
+
+.title-cell a {
+  font-weight: 500;
+  display: block;
+}
+
+.author {
+  display: block;
+  font-size: 11px;
+  color: #8b949e;
+  margin-top: 2px;
+}
+
+.labels-cell {
+  max-width: 200px;
+}
+
+.label-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 1px 2px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  white-space: nowrap;
+}
+
+.action-cell {
+  font-size: 12px;
+  color: #8b949e;
+  max-width: 250px;
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-bug {
+  background: #3d1a1a;
+  color: #f85149;
+}
+
+.badge-feature {
+  background: #0c2d6b;
+  color: #58a6ff;
+}
+
+.badge-unknown {
+  background: #21262d;
+  color: #8b949e;
+}
+
+.badge-success {
+  background: #12261e;
+  color: #3fb950;
+}
+
+.badge-warning {
+  background: #2a2000;
+  color: #d29922;
+}
+
+.badge-error {
+  background: #3d1a1a;
+  color: #f85149;
+}
+
+.badge-neutral {
+  background: #21262d;
+  color: #8b949e;
+}
+
+/* ── Repro Snippets ───────────────────────────────────────────────────────── */
+
+.repro-section {
+  margin-top: 8px;
+}
+
+.repro-toggle {
+  font-size: 11px;
+  color: #58a6ff;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.repro-toggle:hover {
+  color: #79c0ff;
+}
+
+.code-block {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.compiler-output {
+  color: #f0883e;
+}
