@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "triage": "tsx src/triage.ts",
+    "start": "vite",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"

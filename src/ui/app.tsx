@@ -1,4 +1,4 @@
-import { useState, useCallback, type JSX } from "react";
+import { useState, useCallback, useEffect, type JSX } from "react";
 import type { TriageResult } from "../types.js";
 import { Summary } from "./summary.js";
 import { IssueTable } from "./issue-table.js";
@@ -7,6 +7,40 @@ import "./styles.css";
 export function App(): JSX.Element {
   const [data, setData] = useState<TriageResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [sourceLabel, setSourceLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const prParam = params.get("pr");
+    if (!prParam) return;
+
+    const prNumber = Number(prParam);
+    if (!Number.isInteger(prNumber) || prNumber <= 0) {
+      setError("Invalid pr query parameter");
+      return;
+    }
+
+    const repo = params.get("repo") ?? inferRepoFromLocation();
+    if (!repo) {
+      setError("Unable to determine repo. Provide ?repo=owner/name&pr=123");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    fetchTriageResultsFromPr(repo, prNumber)
+      .then((result) => {
+        setData(result);
+        setSourceLabel(`PR #${prNumber} (${repo})`);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load PR results");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   const handleFileLoad = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -17,6 +51,7 @@ export function App(): JSX.Element {
       try {
         const parsed = JSON.parse(e.target?.result as string) as TriageResult;
         setData(parsed);
+        setSourceLabel(file.name);
         setError(null);
       } catch {
         setError("Invalid JSON file");
@@ -35,6 +70,7 @@ export function App(): JSX.Element {
       try {
         const parsed = JSON.parse(e.target?.result as string) as TriageResult;
         setData(parsed);
+        setSourceLabel(file.name);
         setError(null);
       } catch {
         setError("Invalid JSON file");
@@ -56,7 +92,13 @@ export function App(): JSX.Element {
         <div className="drop-zone" onDrop={handleDrop} onDragOver={handleDragOver}>
           <div className="drop-zone-content">
             <p className="drop-zone-icon">📋</p>
-            <p>Drop a <code>triage-results.json</code> file here</p>
+            {loading ? (
+              <p>Loading results from PR...</p>
+            ) : (
+              <p>
+                Drop a <code>triage-results.json</code> file here
+              </p>
+            )}
             <p className="drop-zone-or">or</p>
             <label className="file-input-label">
               Browse files
@@ -80,9 +122,45 @@ export function App(): JSX.Element {
             Load different file
           </button>
         </div>
+        {sourceLabel && <div className="header-meta">Loaded from {sourceLabel}</div>}
       </header>
       <Summary summary={data.summary} />
       <IssueTable issues={data.issues} />
     </div>
   );
+}
+
+function inferRepoFromLocation(): string | null {
+  const host = window.location.hostname;
+  if (!host.endsWith("github.io")) return null;
+
+  const owner = host.replace(/\.github\.io$/, "");
+  const pathParts = window.location.pathname.split("/").filter(Boolean);
+  if (pathParts.length === 0) return null;
+
+  return `${owner}/${pathParts[0]}`;
+}
+
+async function fetchTriageResultsFromPr(repo: string, prNumber: number): Promise<TriageResult> {
+  const prResponse = await fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}`);
+  if (!prResponse.ok) {
+    throw new Error(`Failed to fetch PR metadata (${prResponse.status})`);
+  }
+
+  const prData = (await prResponse.json()) as {
+    head?: { sha?: string; repo?: { full_name?: string } };
+  };
+  const sha = prData.head?.sha;
+  const fullName = prData.head?.repo?.full_name;
+  if (!sha || !fullName) {
+    throw new Error("PR metadata missing head info");
+  }
+
+  const rawUrl = `https://raw.githubusercontent.com/${fullName}/${sha}/.outputs/triage-results.json`;
+  const resultResponse = await fetch(rawUrl);
+  if (!resultResponse.ok) {
+    throw new Error(`Failed to fetch triage results (${resultResponse.status})`);
+  }
+
+  return (await resultResponse.json()) as TriageResult;
 }
