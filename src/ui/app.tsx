@@ -12,6 +12,31 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    // Load from a local/relative file URL
+    const fileParam = params.get("file");
+    if (fileParam) {
+      setLoading(true);
+      setError(null);
+      const fileUrl = fileParam.startsWith("http") ? fileParam : `${import.meta.env.BASE_URL}${fileParam.replace(/^\//, "")}`;
+      fetch(fileUrl)
+        .then((res) => {
+          if (!res.ok) throw new Error(`Failed to fetch ${fileParam} (${res.status})`);
+          return res.json() as Promise<TriageResult>;
+        })
+        .then((result) => {
+          setData(result);
+          setSourceLabel(fileParam);
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : "Failed to load file");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+      return;
+    }
+
     const prParam = params.get("pr");
     if (!prParam) return;
 

@@ -379,3 +379,79 @@ a:hover {
 .compiler-output {
   color: #f0883e;
 }
+
+/* ── Playground Link ─────────────────────────────────────────────────────── */
+
+.playground-link {
+  display: inline-block;
+  font-size: 11px;
+  color: #3fb950;
+  padding: 2px 8px;
+  border: 1px solid #238636;
+  border-radius: 12px;
+  margin-bottom: 4px;
+  text-decoration: none;
+}
+
+.playground-link:hover {
+  background: #12261e;
+  text-decoration: none;
+}
+
+/* ── Repro Description (Markdown) ────────────────────────────────────────── */
+
+.repro-description {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.repro-description p {
+  margin: 0 0 8px;
+}
+
+.repro-description p:last-child {
+  margin-bottom: 0;
+}
+
+.repro-description ul,
+.repro-description ol {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.repro-description code {
+  background: #0d1117;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.repro-description pre {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 8px;
+  overflow-x: auto;
+  font-size: 11px;
+  margin: 4px 0 8px;
+}
+
+.repro-description strong {
+  color: #e6edf3;
+}
+
+.repro-description h1,
+.repro-description h2,
+.repro-description h3,
+.repro-description h4 {
+  margin: 8px 0 4px;
+  font-size: 13px;
+  color: #e6edf3;
+}

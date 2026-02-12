@@ -88,9 +88,8 @@ function main() {
 
     // Create tspconfig.yaml if emitter is specified
     if (emitter) {
-      const emitterName = emitter.split("/").pop() ?? emitter;
       const tspConfig = `emit:
-  - "${emitterName}"
+  - "${emitter}"
 `;
       writeFileSync(join(tempDir, "tspconfig.yaml"), tspConfig);
     }

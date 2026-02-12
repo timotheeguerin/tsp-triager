@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import lzutf8 from "lzutf8";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -27,9 +28,12 @@ export interface TriageIssue {
   reproSource: "code-block" | "playground-link" | "generated" | null;
   reproCode: string | null;
   emitter: string | null;
+  compilerOptions: { emit?: string[] } | null;
   verification: "still-reproduces" | "fixed" | "compile-error" | "not-verified";
   compilerOutput: string | null;
   suggestedAction: string | null;
+  playgroundLink: string | null;
+  reproDescription: string | null;
 }
 
 interface TriageResult {
@@ -71,6 +75,22 @@ const EXCLUDED_LABELS = [
   "emitter:client:csharp",
   "emitter:client:java",
   "emitter:client:js",
+  "feature",
+];
+
+const KNOWN_EMITTERS = [
+  "@typespec/openapi3",
+  "@typespec/openapi",
+  "@typespec/json-schema",
+  "@typespec/protobuf",
+  "@typespec/xml",
+  "@typespec/http-server-csharp",
+  "@typespec/http-server-js",
+  "@typespec/http-client-csharp",
+  "@typespec/http-client-java",
+  "@typespec/http-client-js",
+  "@typespec/http-client-python",
+  "@typespec/emitter-framework",
 ];
 
 // ── CLI Parsing ────────────────────────────────────────────────────────────────
@@ -113,6 +133,16 @@ function gh(args: string): string {
   return execSync(`gh ${args}`, { encoding: "utf-8", maxBuffer: 50 * 1024 * 1024 });
 }
 
+function buildPlaygroundLink(code: string, emitters: string[]): string {
+  const compressed = lzutf8.compress(code, { outputEncoding: "Base64" }) as string;
+  const params = new URLSearchParams();
+  params.set("c", compressed);
+  if (emitters.length > 0) {
+    params.set("e", emitters.join(","));
+  }
+  return `https://typespec.io/playground?${params.toString()}`;
+}
+
 // ── Fetch Issues ───────────────────────────────────────────────────────────────
 
 function fetchIssues(opts: CLIOptions): RawIssue[] {
@@ -129,12 +159,12 @@ function fetchIssues(opts: CLIOptions): RawIssue[] {
   );
   const allIssues: RawIssue[] = JSON.parse(allJson);
 
-  // Find unlabeled issues (no "bug" and no "feature-request" label)
+  // Find unlabeled issues (no "bug" and no "feature-request" and no "feature" label)
   const bugNumbers = new Set(bugIssues.map((i) => i.number));
   const unlabeled = allIssues.filter((issue) => {
     if (bugNumbers.has(issue.number)) return false;
     const labelNames = issue.labels.map((l) => l.name);
-    return !labelNames.includes("bug") && !labelNames.includes("feature-request");
+    return !labelNames.includes("bug") && !labelNames.includes("feature-request") && !labelNames.includes("feature");
   });
 
   const merged = [...bugIssues, ...unlabeled];
@@ -176,7 +206,8 @@ function buildAgentPrompt(issue: RawIssue): string {
     .replace(/\{\{ISSUE_LABELS\}\}/g, JSON.stringify(labelNames))
     .replace(/\{\{VERIFY_SCRIPT\}\}/g, VERIFY_SCRIPT)
     .replace(/\{\{DECODE_SCRIPT\}\}/g, DECODE_SCRIPT)
-    .replace(/\{\{RESULTS_DIR\}\}/g, resultsDir);
+    .replace(/\{\{RESULTS_DIR\}\}/g, resultsDir)
+    .replace(/\{\{KNOWN_EMITTERS\}\}/g, KNOWN_EMITTERS.join(", "));
 
   return `## Issue Details
 - **Number**: #${issue.number}
@@ -251,7 +282,12 @@ async function main() {
     const resultFile = join(resultsDir, `issue-${issue.number}.json`);
     if (existsSync(resultFile)) {
       try {
-        const result = JSON.parse(readFileSync(resultFile, "utf-8"));
+        const result = JSON.parse(readFileSync(resultFile, "utf-8")) as TriageIssue;
+        // Compute playground link if repro code exists
+        if (result.reproCode && !result.playgroundLink) {
+          const emitters = result.compilerOptions?.emit ?? (result.emitter ? [result.emitter] : []);
+          result.playgroundLink = buildPlaygroundLink(result.reproCode, emitters);
+        }
         triageIssues.push(result);
         found++;
       } catch {
@@ -307,6 +343,9 @@ async function main() {
     `  Still reproduces: ${summary.stillReproduces} | Fixed: ${summary.fixed} | Compile error: ${summary.compileError} | Not verified: ${summary.notVerified}`,
   );
   console.log(`  Results written to ${opts.output}`);
+  console.log(`\n  To view results in the UI, run:`);
+  console.log(`    pnpm dev`);
+  console.log(`  Then open: http://localhost:5173/tsp-triager/?file=triage-results.json`);
 }
 
 main().catch((err) => {

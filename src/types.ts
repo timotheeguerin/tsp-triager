@@ -10,9 +10,12 @@ export interface TriageIssue {
   reproSource: "code-block" | "playground-link" | "generated" | null;
   reproCode: string | null;
   emitter: string | null;
+  compilerOptions: { emit?: string[] } | null;
   verification: "still-reproduces" | "fixed" | "compile-error" | "not-verified";
   compilerOutput: string | null;
   suggestedAction: string | null;
+  playgroundLink: string | null;
+  reproDescription: string | null;
 }
 
 export interface TriageResult {

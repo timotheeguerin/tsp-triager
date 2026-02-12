@@ -1,4 +1,5 @@
 import { useState, useMemo, type JSX } from "react";
+import Markdown from "react-markdown";
 import type { TriageIssue } from "../types.js";
 
 interface IssueTableProps {
@@ -36,11 +37,28 @@ function Badge({ config }: { config: { label: string; className: string } }): JS
 function ReproSnippet({ issue }: { issue: TriageIssue }): JSX.Element | null {
   const [expanded, setExpanded] = useState(false);
   const [showOutput, setShowOutput] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
 
-  if (!issue.reproCode && !issue.compilerOutput) return null;
+  if (!issue.reproCode && !issue.compilerOutput && !issue.reproDescription) return null;
 
   return (
     <div className="repro-section">
+      {issue.playgroundLink && (
+        <a href={issue.playgroundLink} target="_blank" rel="noopener noreferrer" className="playground-link">
+          ▶ Open in Playground
+        </a>
+      )}
+      {issue.reproDescription && (
+        <details
+          open={showDescription}
+          onToggle={(e) => setShowDescription((e.target as HTMLDetailsElement).open)}
+        >
+          <summary className="repro-toggle">Repro Details</summary>
+          <div className="repro-description">
+            <Markdown>{issue.reproDescription}</Markdown>
+          </div>
+        </details>
+      )}
       {issue.reproCode && (
         <details open={expanded} onToggle={(e) => setExpanded((e.target as HTMLDetailsElement).open)}>
           <summary className="repro-toggle">Repro Code</summary>
