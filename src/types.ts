@@ -1,3 +1,10 @@
+export interface TriageAction {
+  label: string;
+  icon: string;
+  command: string;
+  type: "area" | "comment" | "close";
+}
+
 export interface TriageIssue {
   number: number;
   title: string;
@@ -16,6 +23,8 @@ export interface TriageIssue {
   suggestedAction: string | null;
   playgroundLink: string | null;
   reproDescription: string | null;
+  suggestedArea: string | null;
+  actions: TriageAction[];
 }
 
 export interface TriageResult {

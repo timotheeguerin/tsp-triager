@@ -16,6 +16,13 @@ interface RawIssue {
   comments: { body: string }[];
 }
 
+interface TriageAction {
+  label: string;
+  icon: string;
+  command: string;
+  type: "area" | "comment" | "close";
+}
+
 export interface TriageIssue {
   number: number;
   title: string;
@@ -34,6 +41,8 @@ export interface TriageIssue {
   suggestedAction: string | null;
   playgroundLink: string | null;
   reproDescription: string | null;
+  suggestedArea: string | null;
+  actions: TriageAction[];
 }
 
 interface TriageResult {
@@ -141,6 +150,53 @@ function buildPlaygroundLink(code: string, emitters: string[]): string {
     params.set("e", emitters.join(","));
   }
   return `https://typespec.io/playground?${params.toString()}`;
+}
+
+function buildActions(issue: TriageIssue, repo: string): TriageAction[] {
+  const actions: TriageAction[] = [];
+
+  if (issue.suggestedArea) {
+    const removeNeedsArea = issue.labels.includes("needs-area") ? ` --remove-label needs-area` : "";
+    actions.push({
+      label: `Add ${issue.suggestedArea}`,
+      icon: "🏷️",
+      command: `gh issue edit ${issue.number} --add-label "${issue.suggestedArea}"${removeNeedsArea} --repo ${repo}`,
+      type: "area",
+    });
+  }
+
+  if (issue.reproStatus === "missing") {
+    actions.push({
+      label: "Request repro",
+      icon: "💬",
+      command: `gh issue comment ${issue.number} --repo ${repo} --body "Thanks for filing this issue! Could you provide a minimal reproduction? You can use the [TypeSpec Playground](https://typespec.io/playground) to create one and share the link. This helps us investigate and fix the issue faster."`,
+      type: "comment",
+    });
+  }
+
+  if (issue.verification === "fixed") {
+    actions.push({
+      label: "Close as fixed",
+      icon: "✅",
+      command: `gh issue close ${issue.number} --repo ${repo} --comment "This issue appears to be fixed in the latest version of the compiler. Please reopen if you can still reproduce it."`,
+      type: "close",
+    });
+  }
+
+  if (issue.reproStatus === "generated" && issue.reproCode) {
+    const playgroundUrl = issue.playgroundLink ?? "";
+    const body = playgroundUrl
+      ? `I was able to reproduce this issue. Here is a minimal reproduction:\n\n[Open in Playground](${playgroundUrl})`
+      : `I was able to reproduce this issue with the following code:\n\n\`\`\`typespec\n${issue.reproCode}\n\`\`\``;
+    actions.push({
+      label: "Share repro",
+      icon: "📋",
+      command: `gh issue comment ${issue.number} --repo ${repo} --body ${JSON.stringify(body)}`,
+      type: "comment",
+    });
+  }
+
+  return actions;
 }
 
 // ── Fetch Issues ───────────────────────────────────────────────────────────────
@@ -287,6 +343,10 @@ async function main() {
         if (result.reproCode && !result.playgroundLink) {
           const emitters = result.compilerOptions?.emit ?? (result.emitter ? [result.emitter] : []);
           result.playgroundLink = buildPlaygroundLink(result.reproCode, emitters);
+        }
+        // Build actions from result data
+        if (!result.actions) {
+          result.actions = buildActions(result, opts.repo);
         }
         triageIssues.push(result);
         found++;

@@ -78,6 +78,45 @@ function ReproSnippet({ issue }: { issue: TriageIssue }): JSX.Element | null {
   );
 }
 
+function ActionButtons({ issue }: { issue: TriageIssue }): JSX.Element {
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(label);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
+
+  const actions = issue.actions ?? [];
+
+  if (actions.length === 0) {
+    return <span className="action-text">{issue.suggestedAction}</span>;
+  }
+
+  const ACTION_CLASS: Record<string, string> = {
+    area: "action-btn action-btn-area",
+    comment: "action-btn action-btn-comment",
+    close: "action-btn action-btn-close",
+  };
+
+  return (
+    <div className="action-buttons">
+      {actions.map((action) => (
+        <button
+          key={action.label}
+          className={ACTION_CLASS[action.type] ?? "action-btn"}
+          title={action.command}
+          onClick={() => copyToClipboard(action.command, action.label)}
+        >
+          {action.icon} {copied === action.label ? "Copied!" : action.label}
+        </button>
+      ))}
+      {issue.suggestedAction && <span className="action-text">{issue.suggestedAction}</span>}
+    </div>
+  );
+}
+
 export function IssueTable({ issues }: IssueTableProps): JSX.Element {
   const [sortField, setSortField] = useState<SortField>("number");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -210,6 +249,11 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
                     {l}
                   </span>
                 ))}
+                {issue.suggestedArea && !issue.labels.includes(issue.suggestedArea) && (
+                  <span className="label-tag label-tag-suggested" title="Suggested area">
+                    ✨ {issue.suggestedArea}
+                  </span>
+                )}
               </td>
               <td>
                 <Badge config={CATEGORY_BADGE[issue.category] ?? CATEGORY_BADGE["unknown"]} />
@@ -220,7 +264,9 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
               <td>
                 <Badge config={VERIFY_BADGE[issue.verification] ?? VERIFY_BADGE["not-verified"]} />
               </td>
-              <td className="action-cell">{issue.suggestedAction}</td>
+              <td className="action-cell">
+                <ActionButtons issue={issue} />
+              </td>
             </tr>
           ))}
         </tbody>

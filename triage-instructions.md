@@ -16,6 +16,13 @@ Before triaging, you should understand the TypeSpec language. Read the documenta
 The following emitter packages are available in microsoft/typespec:
 {{KNOWN_EMITTERS}}
 
+## Area Labels
+
+The area labels used to categorize issues are defined in the TypeSpec repository at:
+https://github.com/microsoft/typespec/blob/main/eng/common/config/labels.ts
+
+Fetch this file to see the full list of `AreaLabels`. Use these label names when guessing the area for an issue.
+
 ## Your Tasks
 
 ### 1. Classify the issue
@@ -35,7 +42,19 @@ Check if the issue mentions or requires a specific TypeSpec emitter:
 - Map to the correct package from the known emitters list above
 - Set the "emitter" field to the emitter package name (e.g., "@typespec/openapi3") or null if no emitter is involved
 
-### 3. Extract a reproduction (only for bugs, skip for docs-bug and feature-request)
+### 3. Guess the area (for issues with `needs-area` label)
+If the issue has the `needs-area` label, or has no area label at all, guess which area it belongs to.
+
+First, fetch the area labels from https://github.com/microsoft/typespec/blob/main/eng/common/config/labels.ts to get the current list of valid area labels.
+
+Then pick the best match based on:
+- The emitter involved (e.g., if emitter is `@typespec/openapi3` → the openapi3 area label)
+- Keywords in the title/body (e.g., "compiler" → compiler area, "IDE" → ide area, etc.)
+- If the issue already has an area label, don't guess — leave `suggestedArea` as null.
+
+Set `suggestedArea` to the best matching area label, or null if you can't determine it.
+
+### 4. Extract a reproduction (only for bugs, skip for docs-bug and feature-request)
 Look for TypeSpec reproduction code in the issue body and comments:
 
 **a) Playground links**: Look for URLs like `https://typespec.io/playground?...`
@@ -57,7 +76,7 @@ Prefer playground links over code blocks (they're more likely to be complete).
 
 Do NOT set `"has-repro"` if you wrote the code yourself — that is `"generated"`.
 
-### 4. Verify the reproduction (only if you found repro code)
+### 5. Verify the reproduction (only if you found repro code)
 Save the repro TypeSpec code to a temp file and verify it compiles:
 
 ```bash
@@ -92,7 +111,7 @@ The verify script outputs JSON:
 If you can see the bug in the emitter output, set verification = "still-reproduces" and include what you found in reproDescription.
 If the emitter output looks correct (bug may be fixed), set verification = "fixed".
 
-### 5. TypeSpec-specific knowledge for writing repros
+### 6. TypeSpec-specific knowledge for writing repros
 
 When writing or fixing reproduction code, keep these TypeSpec rules in mind:
 
@@ -133,7 +152,7 @@ When writing or fixing reproduction code, keep these TypeSpec rules in mind:
   }
   ```
 
-### 6. Special case: OpenAPI3 converter bugs (tsp-openapi3 convert)
+### 7. Special case: OpenAPI3 converter bugs (tsp-openapi3 convert)
 
 Some issues involve the `tsp-openapi3 convert` command which converts OpenAPI3 specs to TypeSpec. For these issues:
 
@@ -146,7 +165,7 @@ Some issues involve the `tsp-openapi3 convert` command which converts OpenAPI3 s
 
 Set the emitter to `@typespec/openapi3` and note in reproDescription that this is a converter bug.
 
-### 7. Detailed repro description (reproDescription)
+### 8. Detailed repro description (reproDescription)
 For bugs that involve more than just a compilation error, write a **detailed markdown description** in the `reproDescription` field. This should include:
 
 - What the bug is about
@@ -157,12 +176,12 @@ For bugs that involve more than just a compilation error, write a **detailed mar
 
 Keep this field null for straightforward compilation bugs where the compiler output tells the whole story.
 
-### 8. If no repro found, try to create one
+### 9. If no repro found, try to create one
 If the issue describes a bug but has no repro, try writing minimal TypeSpec code that demonstrates it.
 Then verify with the same helper. If successful: reproSource = "generated", reproStatus = "generated".
 If you can't create a working repro after a few attempts: reproStatus = "unable-to-repro".
 
-### 9. Output
+### 10. Output
 After completing analysis, output your result as a JSON file.
 Write the result to: {{RESULTS_DIR}}/issue-{{ISSUE_NUMBER}}.json
 
@@ -185,7 +204,8 @@ The JSON must match this schema exactly:
   "compilerOutput": "compiler output string or null",
   "suggestedAction": "one of the suggested actions below",
   "playgroundLink": null,
-  "reproDescription": "detailed markdown description of the repro findings, or null"
+  "reproDescription": "detailed markdown description of the repro findings, or null",
+  "suggestedArea": "area label from the area labels list, or null"
 }
 ```
 
@@ -194,6 +214,8 @@ The JSON must match this schema exactly:
 **playgroundLink**: Always set to null — the aggregation script will compute this automatically from reproCode and compilerOptions.
 
 **reproDescription**: A markdown string with detailed findings for non-trivial bugs. Set to null for simple compilation bugs.
+
+**suggestedArea**: If the issue has `needs-area` label or no area label, set this to the best matching area label from the list above. Set to null if the issue already has an area label or you can't determine the area.
 
 Suggested actions:
 - "Bug confirmed — still reproduces with latest compiler."
