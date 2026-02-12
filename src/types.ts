@@ -39,7 +39,8 @@ export interface TriageResult {
     fetchSeconds: number;
     promptSeconds: number;
     aggregateSeconds: number;
-    agentTotalSeconds: number;
+    agentCumulativeSeconds: number;
+    agentWallClockSeconds: number;
     agentAvgSeconds: number;
     agentMinSeconds: number;
     agentMaxSeconds: number;

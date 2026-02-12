@@ -57,7 +57,8 @@ interface TriageResult {
     fetchSeconds: number;
     promptSeconds: number;
     aggregateSeconds: number;
-    agentTotalSeconds: number;
+    agentCumulativeSeconds: number;
+    agentWallClockSeconds: number;
     agentAvgSeconds: number;
     agentMinSeconds: number;
     agentMaxSeconds: number;
@@ -416,8 +417,9 @@ async function main() {
   const agentDurations = triageIssues
     .map((i) => i.triageDurationSeconds)
     .filter((d): d is number => d != null && d > 0);
-  const agentTotalSeconds = agentDurations.reduce((sum, d) => sum + d, 0);
-  const agentAvgSeconds = agentDurations.length > 0 ? Math.round((agentTotalSeconds / agentDurations.length) * 10) / 10 : 0;
+  const agentCumulativeSeconds = agentDurations.reduce((sum, d) => sum + d, 0);
+  const agentWallClockSeconds = agentDurations.length > 0 ? Math.max(...agentDurations) : 0;
+  const agentAvgSeconds = agentDurations.length > 0 ? Math.round((agentCumulativeSeconds / agentDurations.length) * 10) / 10 : 0;
   const agentMinSeconds = agentDurations.length > 0 ? Math.min(...agentDurations) : 0;
   const agentMaxSeconds = agentDurations.length > 0 ? Math.max(...agentDurations) : 0;
 
@@ -439,7 +441,8 @@ async function main() {
       fetchSeconds: Math.round(fetchSeconds * 10) / 10,
       promptSeconds: Math.round(promptSeconds * 10) / 10,
       aggregateSeconds: Math.round(aggregateSeconds * 10) / 10,
-      agentTotalSeconds: Math.round(agentTotalSeconds * 10) / 10,
+      agentCumulativeSeconds: Math.round(agentCumulativeSeconds * 10) / 10,
+      agentWallClockSeconds: Math.round(agentWallClockSeconds * 10) / 10,
       agentAvgSeconds,
       agentMinSeconds: Math.round(agentMinSeconds * 10) / 10,
       agentMaxSeconds: Math.round(agentMaxSeconds * 10) / 10,
@@ -466,7 +469,7 @@ async function main() {
   console.log(`\n  Timing:`);
   console.log(`    Fetch: ${result.timing.fetchSeconds}s | Prompts: ${result.timing.promptSeconds}s | Aggregate: ${result.timing.aggregateSeconds}s | Total: ${result.timing.totalSeconds}s`);
   if (agentDurations.length > 0) {
-    console.log(`    Agent: total ${result.timing.agentTotalSeconds}s | avg ${result.timing.agentAvgSeconds}s | min ${result.timing.agentMinSeconds}s | max ${result.timing.agentMaxSeconds}s (${agentDurations.length}/${triageIssues.length} reported)`);
+    console.log(`    Agent: wall-clock ${result.timing.agentWallClockSeconds}s | cumulative ${result.timing.agentCumulativeSeconds}s | avg ${result.timing.agentAvgSeconds}s | min ${result.timing.agentMinSeconds}s | max ${result.timing.agentMaxSeconds}s (${agentDurations.length}/${triageIssues.length} reported)`);
   }
   if (tokenUsage.totalInput > 0 || tokenUsage.totalOutput > 0) {
     const totalTokens = tokenUsage.totalInput + tokenUsage.totalOutput;

@@ -73,11 +73,12 @@ export function Summary({ summary, timing, tokenUsage }: SummaryProps): JSX.Elem
             <StatCard label="Prompts" value={timing.promptSeconds} format="duration" />
             <StatCard label="Aggregate" value={timing.aggregateSeconds} format="duration" />
           </div>
-          {timing.agentTotalSeconds > 0 && (
+          {timing.agentWallClockSeconds > 0 && (
             <>
               <h4 style={{ margin: "0.5rem 0 0.25rem", color: "#8b949e" }}>Agent Processing</h4>
               <div className="stat-cards">
-                <StatCard label="Total" value={timing.agentTotalSeconds} format="duration" />
+                <StatCard label="Wall Clock" value={timing.agentWallClockSeconds} format="duration" color="#58a6ff" />
+                <StatCard label="Cumulative" value={timing.agentCumulativeSeconds} format="duration" />
                 <StatCard label="Average" value={timing.agentAvgSeconds} format="duration" />
                 <StatCard label="Min" value={timing.agentMinSeconds} format="duration" />
                 <StatCard label="Max" value={timing.agentMaxSeconds} format="duration" />
