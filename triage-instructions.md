@@ -45,7 +45,7 @@ Look for TypeSpec reproduction code in the issue body and comments:
 **b) TypeSpec code blocks**: Look for fenced code blocks with ```typespec or ```tsp language tags.
    - Also check unlabeled code blocks that contain TypeSpec keywords (import, model, op, namespace, using, interface, enum, union, scalar, decorators with @)
 
-**c) Important**: Skip code blocks tagged as other languages (yaml, python, json, js, ts, csharp, bash, shell, etc.) unless they clearly contain TypeSpec code.
+**c) Important**: Skip code blocks tagged as other languages (yaml, python, json, js, ts, csharp, bash, shell, etc.) unless they clearly contain TypeSpec code or the repro for a different input(like openapi3 to typespec converter).
 
 Prefer playground links over code blocks (they're more likely to be complete).
 
@@ -137,7 +137,7 @@ When writing or fixing reproduction code, keep these TypeSpec rules in mind:
 
 Some issues involve the `tsp-openapi3 convert` command which converts OpenAPI3 specs to TypeSpec. For these issues:
 
-1. The reproduction is an **OpenAPI3 JSON or YAML file**, not TypeSpec code
+1. The reproduction is an **OpenAPI3 JSON or YAML file**, not TypeSpec code. Include a full valid openapi3 document if applicable.
 2. To verify:
    - Write the OpenAPI file to a temp file
    - Install @typespec/openapi3: `npm install @typespec/openapi3@latest @typespec/compiler@latest`
