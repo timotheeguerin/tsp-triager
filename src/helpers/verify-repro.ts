@@ -16,12 +16,13 @@
  * {
  *   "success": boolean,        // true if compilation succeeded (exit code 0)
  *   "diagnostics": string,     // compiler output
- *   "exitCode": number
+ *   "exitCode": number,
+ *   "emitterOutput": { [filename: string]: string } | null  // emitter output files (if any)
  * }
  */
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 
 function detectImports(code: string): string[] {
@@ -34,6 +35,30 @@ function detectImports(code: string): string[] {
     }
   }
   return deps;
+}
+
+function collectOutputFiles(dir: string, base: string): Record<string, string> {
+  const files: Record<string, string> = {};
+  if (!existsSync(dir)) return files;
+
+  for (const entry of readdirSync(dir)) {
+    const fullPath = join(dir, entry);
+    const relPath = relative(base, fullPath);
+    if (statSync(fullPath).isDirectory()) {
+      Object.assign(files, collectOutputFiles(fullPath, base));
+    } else {
+      try {
+        const content = readFileSync(fullPath, "utf-8");
+        // Only include text files under 50KB
+        if (content.length < 50_000) {
+          files[relPath] = content;
+        }
+      } catch {
+        // skip binary files
+      }
+    }
+  }
+  return files;
 }
 
 function main() {
@@ -87,9 +112,13 @@ function main() {
     );
 
     // Create tspconfig.yaml if emitter is specified
+    const outputDir = join(tempDir, "tsp-output");
     if (emitter) {
       const tspConfig = `emit:
   - "${emitter}"
+options:
+  "${emitter}":
+    emitter-output-dir: "${outputDir}"
 `;
       writeFileSync(join(tempDir, "tspconfig.yaml"), tspConfig);
     }
@@ -108,6 +137,7 @@ function main() {
         success: false,
         diagnostics: `Install failed: ${err.stderr ?? err.stdout ?? "unknown error"}`,
         exitCode: -1,
+        emitterOutput: null,
       };
       console.log(JSON.stringify(result, null, 2));
       return;
@@ -116,8 +146,6 @@ function main() {
     // Compile using locally installed tsp
     const tspBin = join(tempDir, "node_modules", ".bin", "tsp");
     try {
-      // If tspconfig.yaml exists, just run tsp compile (it will use the config)
-      // Otherwise, compile main.tsp directly
       const compileCmd = emitter ? `"${tspBin}" compile .` : `"${tspBin}" compile main.tsp`;
       const output = execSync(compileCmd, {
         cwd: tempDir,
@@ -125,19 +153,29 @@ function main() {
         timeout: 30_000,
         stdio: "pipe",
       });
+
+      // Collect emitter output files if an emitter was used
+      const emitterOutput = emitter ? collectOutputFiles(outputDir, outputDir) : null;
+
       const result = {
         success: true,
         diagnostics: output || "(compiled successfully, no diagnostics)",
         exitCode: 0,
+        emitterOutput,
       };
       console.log(JSON.stringify(result, null, 2));
     } catch (e) {
       const err = e as { stderr?: string; stdout?: string; status?: number };
       const output = (err.stdout ?? "") + (err.stderr ?? "");
+
+      // Still try to collect partial emitter output
+      const emitterOutput = emitter ? collectOutputFiles(outputDir, outputDir) : null;
+
       const result = {
         success: false,
         diagnostics: output,
         exitCode: err.status ?? 1,
+        emitterOutput,
       };
       console.log(JSON.stringify(result, null, 2));
     }

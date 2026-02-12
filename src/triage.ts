@@ -76,6 +76,7 @@ const EXCLUDED_LABELS = [
   "emitter:client:java",
   "emitter:client:js",
   "feature",
+  "emitter-framework",
 ];
 
 const KNOWN_EMITTERS = [
@@ -90,7 +91,6 @@ const KNOWN_EMITTERS = [
   "@typespec/http-client-java",
   "@typespec/http-client-js",
   "@typespec/http-client-python",
-  "@typespec/emitter-framework",
 ];
 
 // ── CLI Parsing ────────────────────────────────────────────────────────────────
