@@ -11,6 +11,7 @@ type SortDir = "asc" | "desc";
 const CATEGORY_BADGE: Record<string, { label: string; className: string }> = {
   bug: { label: "🐛 Bug", className: "badge badge-bug" },
   "feature-request": { label: "🚀 Feature", className: "badge badge-feature" },
+  "docs-bug": { label: "📝 Docs Bug", className: "badge badge-docs" },
   unknown: { label: "❓ Unknown", className: "badge badge-unknown" },
 };
 
@@ -128,6 +129,7 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
           <option value="all">All Categories</option>
           <option value="bug">Bugs</option>
           <option value="feature-request">Feature Requests</option>
+          <option value="docs-bug">Docs Bugs</option>
           <option value="unknown">Unknown</option>
         </select>
         <select value={filterRepro} onChange={(e) => setFilterRepro(e.target.value)}>
@@ -192,10 +194,10 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
                 ))}
               </td>
               <td>
-                <Badge config={CATEGORY_BADGE[issue.category] ?? CATEGORY_BADGE.unknown} />
+                <Badge config={CATEGORY_BADGE[issue.category] ?? CATEGORY_BADGE["unknown"]} />
               </td>
               <td>
-                <Badge config={REPRO_BADGE[issue.reproStatus] ?? REPRO_BADGE.missing} />
+                <Badge config={REPRO_BADGE[issue.reproStatus] ?? REPRO_BADGE["missing"]} />
               </td>
               <td>
                 <Badge config={VERIFY_BADGE[issue.verification] ?? VERIFY_BADGE["not-verified"]} />

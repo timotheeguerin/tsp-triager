@@ -3,10 +3,13 @@
  * Helper script: Verify a TypeSpec repro by compiling it.
  *
  * Usage:
- *   npx tsx src/helpers/verify-repro.ts <tsp-file-or-code>
+ *   npx tsx src/helpers/verify-repro.ts <tsp-file-or-code> [--emitter <emitter-name>]
  *
- * If the argument is a file path that exists, it reads from that file.
+ * If the first argument is a file path that exists, it reads from that file.
  * Otherwise, it treats the argument as inline TypeSpec code.
+ *
+ * The optional --emitter flag specifies an emitter to use (e.g., @typespec/openapi3).
+ * If specified, the emitter package is installed and configured in tspconfig.yaml.
  *
  * It creates a temp project, installs dependencies via npm, compiles
  * using the installed tsp CLI, and outputs a JSON result to stdout:
@@ -26,16 +29,28 @@ function detectImports(code: string): string[] {
   const importRe = /import\s+"([^"]+)"/g;
   let match;
   while ((match = importRe.exec(code)) !== null) {
-    deps.push(match[1]);
+    if (match[1]) {
+      deps.push(match[1]);
+    }
   }
   return deps;
 }
 
 function main() {
-  const input = process.argv[2];
-  if (!input) {
-    console.error("Usage: verify-repro.ts <tsp-file-or-code>");
+  // Parse arguments
+  const args = process.argv.slice(2);
+  if (args.length === 0) {
+    console.error("Usage: verify-repro.ts <tsp-file-or-code> [--emitter <emitter-name>]");
     process.exit(1);
+  }
+
+  const input = args[0];
+  let emitter: string | null = null;
+
+  // Check for --emitter flag
+  const emitterIndex = args.indexOf("--emitter");
+  if (emitterIndex !== -1 && emitterIndex + 1 < args.length) {
+    emitter = args[emitterIndex + 1];
   }
 
   let code: string;
@@ -51,7 +66,7 @@ function main() {
     mkdirSync(tempDir, { recursive: true });
     writeFileSync(join(tempDir, "main.tsp"), code);
 
-    // Build package.json based on imports
+    // Build package.json based on imports and emitter
     const imports = detectImports(code);
     const deps: Record<string, string> = {
       "@typespec/compiler": "latest",
@@ -61,11 +76,24 @@ function main() {
         deps[imp] = "latest";
       }
     }
+    // Add emitter if specified
+    if (emitter) {
+      deps[emitter] = "latest";
+    }
 
     writeFileSync(
       join(tempDir, "package.json"),
       JSON.stringify({ dependencies: deps }, null, 2),
     );
+
+    // Create tspconfig.yaml if emitter is specified
+    if (emitter) {
+      const emitterName = emitter.split("/").pop() ?? emitter;
+      const tspConfig = `emit:
+  - "${emitterName}"
+`;
+      writeFileSync(join(tempDir, "tspconfig.yaml"), tspConfig);
+    }
 
     // Install dependencies via npm
     try {
@@ -89,7 +117,10 @@ function main() {
     // Compile using locally installed tsp
     const tspBin = join(tempDir, "node_modules", ".bin", "tsp");
     try {
-      const output = execSync(`"${tspBin}" compile main.tsp`, {
+      // If tspconfig.yaml exists, just run tsp compile (it will use the config)
+      // Otherwise, compile main.tsp directly
+      const compileCmd = emitter ? `"${tspBin}" compile .` : `"${tspBin}" compile main.tsp`;
+      const output = execSync(compileCmd, {
         cwd: tempDir,
         encoding: "utf-8",
         timeout: 30_000,

@@ -31,6 +31,7 @@ export function Summary({ summary }: SummaryProps): JSX.Element {
           <StatCard label="Total" value={summary.totalIssues} />
           <StatCard label="Bugs" value={summary.bugs} color="#d93f0b" />
           <StatCard label="Feature Requests" value={summary.featureRequests} color="#0075ca" />
+          <StatCard label="Docs Bugs" value={summary.docsBugs} color="#0969da" />
           <StatCard label="Unknown" value={summary.unknown} color="#999" />
         </div>
       </div>

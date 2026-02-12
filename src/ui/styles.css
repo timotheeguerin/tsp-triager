@@ -314,6 +314,11 @@ a:hover {
   color: #58a6ff;
 }
 
+.badge-docs {
+  background: #0a3069;
+  color: #79c0ff;
+}
+
 .badge-unknown {
   background: #21262d;
   color: #8b949e;

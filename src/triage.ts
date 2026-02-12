@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -22,10 +22,11 @@ export interface TriageIssue {
   author: string;
   createdAt: string;
   labels: string[];
-  category: "bug" | "feature-request" | "unknown";
+  category: "bug" | "feature-request" | "docs-bug" | "unknown";
   reproStatus: "has-repro" | "missing" | "generated" | "unable-to-repro";
   reproSource: "code-block" | "playground-link" | "generated" | null;
   reproCode: string | null;
+  emitter: string | null;
   verification: "still-reproduces" | "fixed" | "compile-error" | "not-verified";
   compilerOutput: string | null;
   suggestedAction: string | null;
@@ -38,6 +39,7 @@ interface TriageResult {
     totalIssues: number;
     bugs: number;
     featureRequests: number;
+    docsBugs: number;
     unknown: number;
     withRepro: number;
     withoutRepro: number;
@@ -62,11 +64,13 @@ interface CLIOptions {
 const PROJECT_ROOT = resolve(import.meta.dirname, "..");
 const VERIFY_SCRIPT = join(PROJECT_ROOT, "src", "helpers", "verify-repro.ts");
 const DECODE_SCRIPT = join(PROJECT_ROOT, "src", "helpers", "decode-playground.ts");
+const INSTRUCTIONS_FILE = join(PROJECT_ROOT, "triage-instructions.md");
 
 const EXCLUDED_LABELS = [
-  "emitter:http-client-python",
-  "emitter:http-client-csharp",
-  "emitter:http-client-java",
+  "emitter:client:python",
+  "emitter:client:csharp",
+  "emitter:client:java",
+  "emitter:client:js",
 ];
 
 // ── CLI Parsing ────────────────────────────────────────────────────────────────
@@ -158,10 +162,23 @@ function buildAgentPrompt(issue: RawIssue): string {
     .map((c, i) => `--- Comment ${i + 1} ---\n${c.body}`)
     .join("\n\n");
 
-  return `You are triaging a GitHub issue from the microsoft/typespec repository.
-Your job is to analyze this issue and produce a JSON triage result.
+  // Read shared instructions template
+  const instructionsTemplate = readFileSync(INSTRUCTIONS_FILE, "utf-8");
+  
+  // Replace placeholders in the instructions
+  const resultsDir = join(PROJECT_ROOT, "temp", "results");
+  const instructions = instructionsTemplate
+    .replace(/\{\{ISSUE_NUMBER\}\}/g, issue.number.toString())
+    .replace(/\{\{ISSUE_TITLE\}\}/g, issue.title.replace(/"/g, '\\"'))
+    .replace(/\{\{ISSUE_URL\}\}/g, issue.url)
+    .replace(/\{\{ISSUE_AUTHOR\}\}/g, issue.author.login)
+    .replace(/\{\{ISSUE_CREATED_AT\}\}/g, issue.createdAt)
+    .replace(/\{\{ISSUE_LABELS\}\}/g, JSON.stringify(labelNames))
+    .replace(/\{\{VERIFY_SCRIPT\}\}/g, VERIFY_SCRIPT)
+    .replace(/\{\{DECODE_SCRIPT\}\}/g, DECODE_SCRIPT)
+    .replace(/\{\{RESULTS_DIR\}\}/g, resultsDir);
 
-## Issue Details
+  return `## Issue Details
 - **Number**: #${issue.number}
 - **Title**: ${issue.title}
 - **URL**: ${issue.url}
@@ -175,85 +192,15 @@ ${issue.body ?? "(empty)"}
 ## Comments
 ${commentsText || "(no comments)"}
 
-## Your Tasks
+---
 
-### 1. Classify the issue
-- If it has the "bug" label → category = "bug"
-- If it has the "feature-request" label → category = "feature-request"
-- Otherwise, analyze the content:
-  - Title starting with "[Bug]" or body containing "Describe the bug" + "Reproduction" → "bug"
-  - Keywords like "error", "crash", "broken", "regression", "doesn't work" → lean "bug"
-  - Keywords like "feature", "proposal", "suggestion", "enhancement" → "feature-request"
-  - If unclear → "unknown"
+# Instructions
 
-### 2. Extract a reproduction (only for bugs)
-Look for TypeSpec reproduction code in the issue body and comments:
+Please read the shared triage instructions at: ${INSTRUCTIONS_FILE}
 
-**a) Playground links**: Look for URLs like \`https://typespec.io/playground?...\`
-   - If found, decode using: \`npx tsx ${DECODE_SCRIPT} "<url>"\`
-   - This outputs the TypeSpec source code to stdout
+The instructions have been customized for this issue below:
 
-**b) TypeSpec code blocks**: Look for fenced code blocks with \`\`\`typespec or \`\`\`tsp language tags.
-   - Also check unlabeled code blocks that contain TypeSpec keywords (import, model, op, namespace, using, interface, enum, union, scalar, decorators with @)
-
-**c) Important**: Skip code blocks tagged as other languages (yaml, python, json, js, ts, csharp, bash, shell, etc.) unless they clearly contain TypeSpec code.
-
-Prefer playground links over code blocks (they're more likely to be complete).
-
-### 3. Verify the reproduction (only if you found repro code)
-Save the repro TypeSpec code to a temp file and verify it compiles:
-
-\`\`\`bash
-cat > ./temp/triage-${issue.number}.tsp << 'TYPESPEC_EOF'
-<repro code here>
-TYPESPEC_EOF
-
-npx tsx ${VERIFY_SCRIPT} ./temp/triage-${issue.number}.tsp
-\`\`\`
-
-The verify script outputs JSON: \`{ "success": boolean, "diagnostics": string, "exitCode": number }\`
-
-Interpret the result by comparing the compiler output to the bug description:
-- **success=true** (no errors): The bug may be fixed → verification = "fixed"
-- **success=false, errors match the described bug**: → verification = "still-reproduces"
-- **success=false, errors are unrelated** (broken/incomplete snippet): → verification = "compile-error"
-
-### 4. If no repro found, try to create one
-If the issue describes a bug but has no repro, try writing minimal TypeSpec code that demonstrates it.
-Then verify with the same helper. If successful: reproSource = "generated", reproStatus = "generated".
-If you can't create a working repro after a few attempts: reproStatus = "unable-to-repro".
-
-### 5. Output
-After completing analysis, output your result as a JSON file.
-Write the result to: ${join(PROJECT_ROOT, ".results", `issue-${issue.number}.json`)}
-
-The JSON must match this schema exactly:
-\`\`\`json
-{
-  "number": ${issue.number},
-  "title": "${issue.title.replace(/"/g, '\\"')}",
-  "url": "${issue.url}",
-  "author": "${issue.author.login}",
-  "createdAt": "${issue.createdAt}",
-  "labels": ${JSON.stringify(labelNames)},
-  "category": "bug|feature-request|unknown",
-  "reproStatus": "has-repro|missing|generated|unable-to-repro",
-  "reproSource": "code-block|playground-link|generated|null",
-  "reproCode": "the TypeSpec code or null",
-  "verification": "still-reproduces|fixed|compile-error|not-verified",
-  "compilerOutput": "compiler output string or null",
-  "suggestedAction": "one of the suggested actions below"
-}
-\`\`\`
-
-Suggested actions:
-- "Bug confirmed — still reproduces with latest compiler."
-- "May be fixed — no longer reproduces with latest compiler. Consider closing."
-- "Repro code has errors unrelated to the bug. Needs manual review."
-- "Missing reproduction. Needs repro from reporter."
-- "Could not verify — needs manual review."
-- "Feature request — not a bug."
-- "Unclassified issue — needs manual review."
+${instructions}
 `;
 }
 
@@ -268,9 +215,14 @@ async function main() {
   const compilerVersion = "latest";
   console.log(`\n`);
 
-  // Create output directories
-  const promptsDir = join(PROJECT_ROOT, ".prompts");
-  const resultsDir = join(PROJECT_ROOT, ".results");
+  // Create output directories under temp/
+  // Clear prompts (always regenerated), preserve results from agents
+  const tempDir = join(PROJECT_ROOT, "temp");
+  const promptsDir = join(tempDir, "prompts");
+  const resultsDir = join(tempDir, "results");
+  if (existsSync(promptsDir)) {
+    rmSync(promptsDir, { recursive: true });
+  }
   mkdirSync(promptsDir, { recursive: true });
   mkdirSync(resultsDir, { recursive: true });
 
@@ -287,7 +239,7 @@ async function main() {
   console.log(`  ${rawIssues.length} prompts written to ${promptsDir}/`);
 
   // Step 3: The caller (copilot agent) will now spawn sub-agents for each issue.
-  // Each sub-agent reads the prompt, does the triage, and writes result JSON to .results/
+  // Each sub-agent reads the prompt, does the triage, and writes result JSON to temp/results/
   // After all agents complete, run this script again to aggregate.
 
   // Check if we should aggregate existing results
@@ -322,6 +274,7 @@ async function main() {
     totalIssues: triageIssues.length,
     bugs: triageIssues.filter((i) => i.category === "bug").length,
     featureRequests: triageIssues.filter((i) => i.category === "feature-request").length,
+    docsBugs: triageIssues.filter((i) => i.category === "docs-bug").length,
     unknown: triageIssues.filter((i) => i.category === "unknown").length,
     withRepro: triageIssues.filter((i) => i.reproStatus === "has-repro").length,
     withoutRepro: triageIssues.filter((i) => i.reproStatus === "missing").length,
@@ -345,7 +298,7 @@ async function main() {
   console.log("Triage complete.");
   console.log(`  Total issues: ${summary.totalIssues}`);
   console.log(
-    `  Bugs: ${summary.bugs} | Feature requests: ${summary.featureRequests} | Unknown: ${summary.unknown}`,
+    `  Bugs: ${summary.bugs} | Feature requests: ${summary.featureRequests} | Docs bugs: ${summary.docsBugs} | Unknown: ${summary.unknown}`,
   );
   console.log(
     `  With repro: ${summary.withRepro} | Generated: ${summary.generatedRepro} | Missing: ${summary.withoutRepro}`,
