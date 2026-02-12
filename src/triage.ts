@@ -31,7 +31,7 @@ export interface TriageIssue {
   createdAt: string;
   labels: string[];
   category: "bug" | "feature-request" | "docs-bug" | "unknown";
-  reproStatus: "has-repro" | "missing" | "generated" | "unable-to-repro";
+  reproStatus: "has-repro" | "missing" | "generated" | "unable-to-repro" | "n/a";
   reproSource: "code-block" | "playground-link" | "generated" | null;
   reproCode: string | null;
   emitter: string | null;
@@ -43,11 +43,29 @@ export interface TriageIssue {
   reproDescription: string | null;
   suggestedArea: string | null;
   actions: TriageAction[];
+  tokenUsage?: { input: number; output: number };
+  triageDurationSeconds?: number;
+  model?: string;
 }
 
 interface TriageResult {
   generatedAt: string;
   compilerVersion: string;
+  model: string;
+  timing: {
+    totalSeconds: number;
+    fetchSeconds: number;
+    promptSeconds: number;
+    aggregateSeconds: number;
+    agentTotalSeconds: number;
+    agentAvgSeconds: number;
+    agentMinSeconds: number;
+    agentMaxSeconds: number;
+  };
+  tokenUsage: {
+    totalInput: number;
+    totalOutput: number;
+  };
   summary: {
     totalIssues: number;
     bugs: number;
@@ -300,6 +318,7 @@ async function main() {
   log(opts, "Options:", opts);
 
   const compilerVersion = "latest";
+  const startTime = performance.now();
   console.log(`\n`);
 
   // Create output directories under temp/
@@ -314,9 +333,12 @@ async function main() {
   mkdirSync(resultsDir, { recursive: true });
 
   // Step 1: Fetch issues
+  const fetchStart = performance.now();
   const rawIssues = fetchIssues(opts);
+  const fetchSeconds = (performance.now() - fetchStart) / 1000;
 
   // Step 2: Write agent prompts
+  const promptStart = performance.now();
   console.log("\nWriting agent prompts...");
   for (const issue of rawIssues) {
     const prompt = buildAgentPrompt(issue);
@@ -324,12 +346,14 @@ async function main() {
     log(opts, `  Written prompt for #${issue.number}`);
   }
   console.log(`  ${rawIssues.length} prompts written to ${promptsDir}/`);
+  const promptSeconds = (performance.now() - promptStart) / 1000;
 
   // Step 3: The caller (copilot agent) will now spawn sub-agents for each issue.
   // Each sub-agent reads the prompt, does the triage, and writes result JSON to temp/results/
   // After all agents complete, run this script again to aggregate.
 
   // Check if we should aggregate existing results
+  const aggregateStart = performance.now();
   console.log("\nChecking for existing agent results...");
   const triageIssues: TriageIssue[] = [];
   let found = 0;
@@ -363,6 +387,9 @@ async function main() {
 
   console.log(`  Found ${found}/${rawIssues.length} results.`);
 
+  const aggregateSeconds = (performance.now() - aggregateStart) / 1000;
+  const totalSeconds = (performance.now() - startTime) / 1000;
+
   // Aggregate
   const summary = {
     totalIssues: triageIssues.length,
@@ -379,9 +406,45 @@ async function main() {
     notVerified: triageIssues.filter((i) => i.verification === "not-verified").length,
   };
 
+  // Token usage
+  const tokenUsage = {
+    totalInput: triageIssues.reduce((sum, i) => sum + (i.tokenUsage?.input ?? 0), 0),
+    totalOutput: triageIssues.reduce((sum, i) => sum + (i.tokenUsage?.output ?? 0), 0),
+  };
+
+  // Agent timing
+  const agentDurations = triageIssues
+    .map((i) => i.triageDurationSeconds)
+    .filter((d): d is number => d != null && d > 0);
+  const agentTotalSeconds = agentDurations.reduce((sum, d) => sum + d, 0);
+  const agentAvgSeconds = agentDurations.length > 0 ? Math.round((agentTotalSeconds / agentDurations.length) * 10) / 10 : 0;
+  const agentMinSeconds = agentDurations.length > 0 ? Math.min(...agentDurations) : 0;
+  const agentMaxSeconds = agentDurations.length > 0 ? Math.max(...agentDurations) : 0;
+
+  // Determine model from agent results (most common reported model)
+  const modelCounts = new Map<string, number>();
+  for (const issue of triageIssues) {
+    if (issue.model) {
+      modelCounts.set(issue.model, (modelCounts.get(issue.model) ?? 0) + 1);
+    }
+  }
+  const detectedModel = [...modelCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "unknown";
+
   const result: TriageResult = {
     generatedAt: new Date().toISOString(),
     compilerVersion,
+    model: detectedModel,
+    timing: {
+      totalSeconds: Math.round(totalSeconds * 10) / 10,
+      fetchSeconds: Math.round(fetchSeconds * 10) / 10,
+      promptSeconds: Math.round(promptSeconds * 10) / 10,
+      aggregateSeconds: Math.round(aggregateSeconds * 10) / 10,
+      agentTotalSeconds: Math.round(agentTotalSeconds * 10) / 10,
+      agentAvgSeconds,
+      agentMinSeconds: Math.round(agentMinSeconds * 10) / 10,
+      agentMaxSeconds: Math.round(agentMaxSeconds * 10) / 10,
+    },
+    tokenUsage,
     summary,
     issues: triageIssues,
   };
@@ -400,6 +463,16 @@ async function main() {
   console.log(
     `  Still reproduces: ${summary.stillReproduces} | Fixed: ${summary.fixed} | Compile error: ${summary.compileError} | Not verified: ${summary.notVerified}`,
   );
+  console.log(`\n  Timing:`);
+  console.log(`    Fetch: ${result.timing.fetchSeconds}s | Prompts: ${result.timing.promptSeconds}s | Aggregate: ${result.timing.aggregateSeconds}s | Total: ${result.timing.totalSeconds}s`);
+  if (agentDurations.length > 0) {
+    console.log(`    Agent: total ${result.timing.agentTotalSeconds}s | avg ${result.timing.agentAvgSeconds}s | min ${result.timing.agentMinSeconds}s | max ${result.timing.agentMaxSeconds}s (${agentDurations.length}/${triageIssues.length} reported)`);
+  }
+  if (tokenUsage.totalInput > 0 || tokenUsage.totalOutput > 0) {
+    const totalTokens = tokenUsage.totalInput + tokenUsage.totalOutput;
+    console.log(`\n  Token usage:`);
+    console.log(`    Input: ${tokenUsage.totalInput.toLocaleString()} | Output: ${tokenUsage.totalOutput.toLocaleString()} | Total: ${totalTokens.toLocaleString()}`);
+  }
   console.log(`  Results written to ${opts.output}`);
   console.log(`\n  To view results in the UI, run:`);
   console.log(`    pnpm dev`);

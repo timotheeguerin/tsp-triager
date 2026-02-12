@@ -21,6 +21,7 @@ const REPRO_BADGE: Record<string, { label: string; className: string }> = {
   generated: { label: "🔧 Generated", className: "badge badge-warning" },
   missing: { label: "❌ Missing", className: "badge badge-error" },
   "unable-to-repro": { label: "🤷 Unable", className: "badge badge-error" },
+  "n/a": { label: "➖ N/A", className: "badge badge-neutral" },
 };
 
 const VERIFY_BADGE: Record<string, { label: string; className: string }> = {
@@ -224,6 +225,7 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
           <option value="generated">Generated</option>
           <option value="missing">Missing</option>
           <option value="unable-to-repro">Unable to Repro</option>
+          <option value="n/a">N/A</option>
         </select>
         <select value={filterVerification} onChange={(e) => setFilterVerification(e.target.value)}>
           <option value="all">All Verification</option>
@@ -270,6 +272,9 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
                   {issue.title}
                 </a>
                 <span className="author">by {issue.author}</span>
+                {issue.triageDurationSeconds != null && issue.triageDurationSeconds > 0 && (
+                  <span className="triage-duration" title="Agent triage duration">⏱ {issue.triageDurationSeconds}s</span>
+                )}
                 <ReproSnippet issue={issue} />
               </td>
               <td className="labels-cell">

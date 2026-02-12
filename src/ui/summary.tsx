@@ -3,26 +3,38 @@ import type { TriageResult } from "../types.js";
 
 interface SummaryProps {
   summary: TriageResult["summary"];
+  timing?: TriageResult["timing"];
+  tokenUsage?: TriageResult["tokenUsage"];
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
 }
 
 function StatCard({
   label,
   value,
   color,
+  format,
 }: {
   label: string;
   value: number;
   color?: string;
+  format?: "duration" | "number";
 }): JSX.Element {
+  const display = format === "duration" ? formatDuration(value) : value.toLocaleString();
   return (
     <div className="stat-card" style={color ? { borderTopColor: color } : undefined}>
-      <div className="stat-value">{value}</div>
+      <div className="stat-value">{display}</div>
       <div className="stat-label">{label}</div>
     </div>
   );
 }
 
-export function Summary({ summary }: SummaryProps): JSX.Element {
+export function Summary({ summary, timing, tokenUsage }: SummaryProps): JSX.Element {
   return (
     <div className="summary">
       <div className="stat-group">
@@ -52,6 +64,38 @@ export function Summary({ summary }: SummaryProps): JSX.Element {
           <StatCard label="Not Verified" value={summary.notVerified} color="#999" />
         </div>
       </div>
+      {timing && (
+        <div className="stat-group">
+          <h3>Timing</h3>
+          <div className="stat-cards">
+            <StatCard label="Total" value={timing.totalSeconds} format="duration" />
+            <StatCard label="Fetch" value={timing.fetchSeconds} format="duration" />
+            <StatCard label="Prompts" value={timing.promptSeconds} format="duration" />
+            <StatCard label="Aggregate" value={timing.aggregateSeconds} format="duration" />
+          </div>
+          {timing.agentTotalSeconds > 0 && (
+            <>
+              <h4 style={{ margin: "0.5rem 0 0.25rem", color: "#8b949e" }}>Agent Processing</h4>
+              <div className="stat-cards">
+                <StatCard label="Total" value={timing.agentTotalSeconds} format="duration" />
+                <StatCard label="Average" value={timing.agentAvgSeconds} format="duration" />
+                <StatCard label="Min" value={timing.agentMinSeconds} format="duration" />
+                <StatCard label="Max" value={timing.agentMaxSeconds} format="duration" />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {tokenUsage && (tokenUsage.totalInput > 0 || tokenUsage.totalOutput > 0) && (
+        <div className="stat-group">
+          <h3>Token Usage</h3>
+          <div className="stat-cards">
+            <StatCard label="Input" value={tokenUsage.totalInput} />
+            <StatCard label="Output" value={tokenUsage.totalOutput} />
+            <StatCard label="Total" value={tokenUsage.totalInput + tokenUsage.totalOutput} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

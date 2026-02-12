@@ -142,6 +142,7 @@ export function App(): JSX.Element {
         <h1>TypeSpec Issue Triager</h1>
         <div className="header-meta">
           <span>Compiler v{data.compilerVersion}</span>
+          {data.model && data.model !== "unknown" && <span>Model: {data.model}</span>}
           <span>Generated {new Date(data.generatedAt).toLocaleString()}</span>
           <button className="reset-btn" onClick={() => setData(null)}>
             Load different file
@@ -149,7 +150,7 @@ export function App(): JSX.Element {
         </div>
         {sourceLabel && <div className="header-meta">Loaded from {sourceLabel}</div>}
       </header>
-      <Summary summary={data.summary} />
+      <Summary summary={data.summary} timing={data.timing} tokenUsage={data.tokenUsage} />
       <IssueTable issues={data.issues} />
     </div>
   );

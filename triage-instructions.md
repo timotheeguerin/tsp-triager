@@ -54,10 +54,14 @@ Then pick the best match based on:
 
 Set `suggestedArea` to the best matching area label, or null if you can't determine it.
 
-### 4. Extract a reproduction (only for bugs, skip for docs-bug and feature-request)
-Look for TypeSpec reproduction code in the issue body and comments:
+### 4. Extract a reproduction (only for bugs)
+
+**Skip for feature requests and docs bugs**: If category is `"feature-request"` or `"docs-bug"`, set `reproStatus = "n/a"`, `reproSource = null`, `reproCode = null`, `verification = "not-verified"`, and skip verification entirely.
+
+For bugs, look for TypeSpec reproduction code in the issue body and comments:
 
 **a) Playground links**: Look for URLs like `https://typespec.io/playground?...`
+   - They may appear as markdown links `[text](https://typespec.io/playground?...)` OR as HTML anchor tags `<a href="https://typespec.io/playground?...">...</a>`
    - If found, decode using: `npx tsx {{DECODE_SCRIPT}} "<url>"`
    - This outputs the TypeSpec source code to stdout
 
@@ -71,8 +75,9 @@ Prefer playground links over code blocks (they're more likely to be complete).
 **reproStatus rules**:
 - `"has-repro"` — reproduction code was found **in the issue itself** (code block or playground link)
 - `"generated"` — you wrote the reproduction code yourself because the issue didn't include one
-- `"missing"` — no repro was found and you couldn't create one
+- `"missing"` — no repro was found and you couldn't create one (bugs only)
 - `"unable-to-repro"` — you tried to create a repro but failed after multiple attempts
+- `"n/a"` — not applicable (feature requests, docs bugs)
 
 Do NOT set `"has-repro"` if you wrote the code yourself — that is `"generated"`.
 
@@ -110,6 +115,27 @@ The verify script outputs JSON:
 
 If you can see the bug in the emitter output, set verification = "still-reproduces" and include what you found in reproDescription.
 If the emitter output looks correct (bug may be fixed), set verification = "fixed".
+
+### 5a. Fix outdated reproductions
+
+Older issues may have repro code that no longer compiles because the TypeSpec language or libraries have evolved. If the repro fails with errors unrelated to the reported bug, try to **fix** the repro:
+- **Changed decorator names or signatures**: look up the current decorator API at https://typespec.io and update accordingly
+- **Removed/renamed types or namespaces**: replace with the current equivalents
+- **Changed import paths**: update `import` statements to match the current package structure
+- **Missing `using` statements**: add any needed `using` directives
+
+After fixing, re-run the verify script. If the fix works, use the updated code as the repro and set `reproSource` to `"generated"` (since you modified it). Note in `reproDescription` that the original repro was updated for the latest compiler.
+
+### 5b. Minimize reproduction code
+
+When a repro is large or includes unnecessary code, try to **reduce** it to the smallest code that still demonstrates the bug:
+- Remove models, operations, or decorators not related to the bug
+- Remove comments and unnecessary whitespace
+- Simplify model names and property names
+- Remove redundant imports
+- Keep only the minimum structure needed to trigger the issue
+
+A smaller repro makes it easier for developers to understand and fix the bug. Aim for under 30 lines when possible.
 
 ### 6. TypeSpec-specific knowledge for writing repros
 
@@ -195,7 +221,7 @@ The JSON must match this schema exactly:
   "createdAt": "{{ISSUE_CREATED_AT}}",
   "labels": {{ISSUE_LABELS}},
   "category": "bug|feature-request|docs-bug|unknown",
-  "reproStatus": "has-repro|missing|generated|unable-to-repro",
+  "reproStatus": "has-repro|missing|generated|unable-to-repro|n/a",
   "reproSource": "code-block|playground-link|generated|null",
   "reproCode": "the TypeSpec code or null",
   "emitter": "emitter package name (e.g., @typespec/openapi3) or null",
@@ -205,9 +231,18 @@ The JSON must match this schema exactly:
   "suggestedAction": "one of the suggested actions below",
   "playgroundLink": null,
   "reproDescription": "detailed markdown description of the repro findings, or null",
-  "suggestedArea": "area label from the area labels list, or null"
+  "suggestedArea": "area label from the area labels list, or null",
+  "triageDurationSeconds": 0,
+  "model": "your model name (e.g., claude-sonnet-4, gpt-4, etc.)",
+  "tokenUsage": { "input": 0, "output": 0 }
 }
 ```
+
+**triageDurationSeconds**: Record how long (in seconds) it took you to fully triage this issue, from first reading it to writing the result file. Use whole numbers.
+
+**model**: Report the name/version of the AI model you are running as (e.g., "claude-sonnet-4", "gpt-4", etc.).
+
+**tokenUsage**: If you can determine your token usage for this triage session, report the input and output token counts. If unknown, set both to 0.
 
 **compilerOptions**: Set this when you have repro code. Include `emit` with the list of emitters used for verification. Set to null if no repro code.
 

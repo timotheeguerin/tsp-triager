@@ -272,6 +272,13 @@ a:hover {
   margin-top: 2px;
 }
 
+.triage-duration {
+  display: inline-block;
+  font-size: 10px;
+  color: #8b949e;
+  margin-left: 8px;
+}
+
 .labels-cell {
   max-width: 200px;
 }
