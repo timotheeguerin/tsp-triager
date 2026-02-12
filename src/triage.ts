@@ -155,7 +155,7 @@ function buildPlaygroundLink(code: string, emitters: string[]): string {
 function buildActions(issue: TriageIssue, repo: string): TriageAction[] {
   const actions: TriageAction[] = [];
 
-  if (issue.suggestedArea) {
+  if (issue.suggestedArea && !issue.labels.includes(issue.suggestedArea)) {
     const removeNeedsArea = issue.labels.includes("needs-area") ? ` --remove-label needs-area` : "";
     actions.push({
       label: `Add ${issue.suggestedArea}`,
@@ -165,7 +165,7 @@ function buildActions(issue: TriageIssue, repo: string): TriageAction[] {
     });
   }
 
-  if (issue.reproStatus === "missing") {
+  if (issue.reproStatus === "missing" && issue.category === "bug") {
     actions.push({
       label: "Request repro",
       icon: "💬",
@@ -344,10 +344,8 @@ async function main() {
           const emitters = result.compilerOptions?.emit ?? (result.emitter ? [result.emitter] : []);
           result.playgroundLink = buildPlaygroundLink(result.reproCode, emitters);
         }
-        // Build actions from result data
-        if (!result.actions) {
-          result.actions = buildActions(result, opts.repo);
-        }
+        // Build actions from result data (always recompute)
+        result.actions = buildActions(result, opts.repo);
         triageIssues.push(result);
         found++;
       } catch {
