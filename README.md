@@ -5,44 +5,56 @@ Automated triage tool for [microsoft/typespec](https://github.com/microsoft/type
 ## Architecture
 
 ```
-src/triage.ts              # Orchestrator: fetches issues, generates agent prompts, aggregates results
-src/helpers/verify-repro.ts    # Compiles TypeSpec code in a temp project, outputs JSON result
-src/helpers/decode-playground.ts # Decodes lzutf8-compressed playground URLs
-src/ui/                    # React + Vite dashboard for viewing triage results
+src/triage/
+  cli.ts                    # CLI entry point: parse args, dispatch
+  orchestrate.ts            # Main pipeline: fetch → prompts → agents → aggregate
+  fetch-issues.ts           # Fetch issues from GitHub via `gh`
+  build-prompt.ts           # Build per-issue agent prompts from template
+  execute-agent.ts          # Invoke copilot CLI for a single issue, capture token usage
+  aggregate-results.ts      # Aggregate per-issue results into final report
+  types.ts                  # Pipeline types (RawIssue, CLIOptions, AgentResult)
+  constants.ts              # Shared constants (labels, emitters, paths)
+  utils.ts                  # Utilities (playground links, actions, gh wrapper)
+src/types.ts                # Shared UI types (TriageIssue, TriageResult)
+src/helpers/
+  verify-repro.ts           # Compiles TypeSpec code in a temp project, outputs JSON result
+  decode-playground.ts      # Decodes lzutf8-compressed playground URLs
+src/ui/                     # React + Vite dashboard for viewing triage results
 ```
 
 ## Setup
 
 ```bash
-npm install
+pnpm install
 ```
 
 ## Usage
 
-### 1. Run triage (generates agent prompts)
+### CLI mode (default) — full automated triage
+
+Fetches issues, invokes copilot CLI for each one, and aggregates results:
 
 ```bash
-npm run triage -- --limit 5
+pnpm triage --limit 5
+pnpm triage --model claude-sonnet-4 --concurrency 3
 ```
 
-This fetches issues and writes agent prompts to `.prompts/`. Each prompt contains instructions for an AI agent to triage a single issue (extract repro, verify compilation, classify).
+Each issue gets its own copilot CLI agent that reads the prompt, triages, and writes a result JSON. Token usage is captured from agent output.
 
-### 2. Run agents
+### Agent mode — for interactive sessions
 
-Agents read prompts from `.prompts/issue-NNNN.md`, perform triage, and write results to `.results/issue-NNNN.json`.
-
-### 3. Aggregate results
-
-Re-run the triage script to aggregate agent results into `triage-results.json`:
+Generates prompts for an interactive agent session to spawn sub-agents:
 
 ```bash
-npm run triage -- --limit 5
+pnpm triage --mode agent --limit 10
 ```
 
-### 4. View dashboard
+Prompts are written to `temp/prompts/`. The calling agent spawns sub-agents for each issue, which write results to `temp/results/`.
+
+### View dashboard
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open the dashboard in your browser and drop in the `triage-results.json` file.
@@ -50,13 +62,18 @@ Open the dashboard in your browser and drop in the `triage-results.json` file.
 ## CLI Options
 
 ```
-npm run triage -- [options]
+pnpm triage [options]
 
 Options:
-  --output <path>       Output JSON file path (default: ./triage-results.json)
-  --limit <n>           Max number of issues to process
-  --verbose             Print detailed progress
-  --repo <owner/repo>   GitHub repo (default: microsoft/typespec)
+  --output <path>        Output JSON file path (default: ./triage-results.json)
+  --limit <n>            Max number of issues to process
+  --verbose              Print detailed progress
+  --repo <owner/repo>    GitHub repo (default: microsoft/typespec)
+  --model <model>        AI model for copilot CLI agents (default: claude-sonnet-4)
+  --concurrency <n>      Number of parallel agents (default: 1)
+  --mode <cli|agent>     Execution mode (default: cli)
+                           cli   — invoke copilot CLI as subprocess for each issue
+                           agent — generate prompts only (for interactive agent sessions)
 ```
 
 ## JSON Output Schema

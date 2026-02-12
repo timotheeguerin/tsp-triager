@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "triage": "tsx src/triage.ts",
+    "triage": "tsx src/triage/cli.ts",
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
