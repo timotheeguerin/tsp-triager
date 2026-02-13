@@ -14,7 +14,7 @@ export function App(): JSX.Element {
     const params = new URLSearchParams(window.location.search);
 
     // Load from a local/relative file URL
-    const fileParam = params.get("file");
+    const fileParam = params.get("url") ?? params.get("file");
     if (fileParam) {
       setLoading(true);
       setError(null);
@@ -108,7 +108,9 @@ export function App(): JSX.Element {
     event.preventDefault();
   }, []);
 
-  const [urlInput, setUrlInput] = useState("");
+  const [urlInput, setUrlInput] = useState(() => {
+    return new URLSearchParams(window.location.search).get("url") ?? "";
+  });
 
   const handleUrlLoad = useCallback(() => {
     const url = urlInput.trim();
@@ -123,6 +125,9 @@ export function App(): JSX.Element {
       .then((result) => {
         setData(result);
         setSourceLabel(url);
+        const params = new URLSearchParams(window.location.search);
+        params.set("url", url);
+        window.history.replaceState(null, "", `?${params.toString()}`);
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Failed to load from URL");
