@@ -40,7 +40,6 @@ export interface TriageResult {
     promptSeconds: number;
     aggregateSeconds: number;
     agentCumulativeSeconds: number;
-    agentWallClockSeconds: number;
     agentAvgSeconds: number;
     agentMinSeconds: number;
     agentMaxSeconds: number;

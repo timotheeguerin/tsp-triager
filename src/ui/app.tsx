@@ -108,6 +108,30 @@ export function App(): JSX.Element {
     event.preventDefault();
   }, []);
 
+  const [urlInput, setUrlInput] = useState("");
+
+  const handleUrlLoad = useCallback(() => {
+    const url = urlInput.trim();
+    if (!url) return;
+    setLoading(true);
+    setError(null);
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to fetch URL (${res.status})`);
+        return res.json() as Promise<TriageResult>;
+      })
+      .then((result) => {
+        setData(result);
+        setSourceLabel(url);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load from URL");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [urlInput]);
+
   if (!data) {
     return (
       <div className="app">
@@ -118,7 +142,7 @@ export function App(): JSX.Element {
           <div className="drop-zone-content">
             <p className="drop-zone-icon">📋</p>
             {loading ? (
-              <p>Loading results from PR...</p>
+              <p>Loading results...</p>
             ) : (
               <p>
                 Drop a <code>triage-results.json</code> file here
@@ -129,6 +153,20 @@ export function App(): JSX.Element {
               Browse files
               <input type="file" accept=".json" onChange={handleFileLoad} hidden />
             </label>
+            <p className="drop-zone-or">or</p>
+            <div className="url-input-group">
+              <input
+                type="url"
+                className="url-input"
+                placeholder="https://example.com/triage-results.json"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleUrlLoad(); }}
+              />
+              <button className="url-load-btn" onClick={handleUrlLoad} disabled={loading || !urlInput.trim()}>
+                Load
+              </button>
+            </div>
           </div>
           {error && <p className="error">{error}</p>}
         </div>

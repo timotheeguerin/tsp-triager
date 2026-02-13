@@ -6,7 +6,7 @@ interface IssueTableProps {
   issues: TriageIssue[];
 }
 
-type SortField = "number" | "title" | "category" | "reproStatus" | "verification";
+type SortField = "number" | "title" | "category" | "reproStatus" | "verification" | "triageDurationSeconds";
 type SortDir = "asc" | "desc";
 
 const CATEGORY_BADGE: Record<string, { label: string; className: string }> = {
@@ -193,8 +193,8 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
     }
 
     result.sort((a, b) => {
-      const aVal = a[sortField];
-      const bVal = b[sortField];
+      const aVal = a[sortField] ?? 0;
+      const bVal = b[sortField] ?? 0;
       const cmp = typeof aVal === "number" ? aVal - (bVal as number) : String(aVal).localeCompare(String(bVal));
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -256,6 +256,9 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
             <th className="sortable" onClick={() => handleSort("verification")}>
               Verification{sortIndicator("verification")}
             </th>
+            <th className="sortable" onClick={() => handleSort("triageDurationSeconds")}>
+              Duration{sortIndicator("triageDurationSeconds")}
+            </th>
             <th>Action</th>
           </tr>
         </thead>
@@ -272,9 +275,6 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
                   {issue.title}
                 </a>
                 <span className="author">by {issue.author}</span>
-                {issue.triageDurationSeconds != null && issue.triageDurationSeconds > 0 && (
-                  <span className="triage-duration" title="Agent triage duration">⏱ {issue.triageDurationSeconds}s</span>
-                )}
                 <ReproSnippet issue={issue} />
               </td>
               <td className="labels-cell">
@@ -297,6 +297,11 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
               </td>
               <td>
                 <Badge config={VERIFY_BADGE[issue.verification] ?? VERIFY_BADGE["not-verified"]} />
+              </td>
+              <td className="duration-cell">
+                {issue.triageDurationSeconds != null && issue.triageDurationSeconds > 0
+                  ? `${issue.triageDurationSeconds}s`
+                  : "—"}
               </td>
               <td className="action-cell">
                 <ActionButtons

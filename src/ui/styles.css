@@ -120,6 +120,48 @@ a:hover {
   background: #2ea043;
 }
 
+.url-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  max-width: 500px;
+}
+
+.url-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  font-size: 14px;
+}
+
+.url-input::placeholder {
+  color: #484f58;
+}
+
+.url-load-btn {
+  padding: 8px 16px;
+  background: #238636;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.url-load-btn:hover:not(:disabled) {
+  background: #2ea043;
+}
+
+.url-load-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .error {
   color: #f85149;
   margin-top: 16px;
