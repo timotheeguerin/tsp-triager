@@ -1,16 +1,18 @@
-import { useState, useMemo, type JSX } from "react";
-import type { TriageIssue } from "../types.js";
+import { useState, useMemo, useCallback, type JSX } from "react";
+import Markdown from "react-markdown";
+import type { TriageIssue, TriageAction } from "../types.js";
 
 interface IssueTableProps {
   issues: TriageIssue[];
 }
 
-type SortField = "number" | "title" | "category" | "reproStatus" | "verification";
+type SortField = "number" | "title" | "category" | "reproStatus" | "verification" | "triageDurationSeconds";
 type SortDir = "asc" | "desc";
 
 const CATEGORY_BADGE: Record<string, { label: string; className: string }> = {
   bug: { label: "🐛 Bug", className: "badge badge-bug" },
   "feature-request": { label: "🚀 Feature", className: "badge badge-feature" },
+  "docs-bug": { label: "📝 Docs Bug", className: "badge badge-docs" },
   unknown: { label: "❓ Unknown", className: "badge badge-unknown" },
 };
 
@@ -19,6 +21,7 @@ const REPRO_BADGE: Record<string, { label: string; className: string }> = {
   generated: { label: "🔧 Generated", className: "badge badge-warning" },
   missing: { label: "❌ Missing", className: "badge badge-error" },
   "unable-to-repro": { label: "🤷 Unable", className: "badge badge-error" },
+  "n/a": { label: "➖ N/A", className: "badge badge-neutral" },
 };
 
 const VERIFY_BADGE: Record<string, { label: string; className: string }> = {
@@ -35,11 +38,28 @@ function Badge({ config }: { config: { label: string; className: string } }): JS
 function ReproSnippet({ issue }: { issue: TriageIssue }): JSX.Element | null {
   const [expanded, setExpanded] = useState(false);
   const [showOutput, setShowOutput] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
 
-  if (!issue.reproCode && !issue.compilerOutput) return null;
+  if (!issue.reproCode && !issue.compilerOutput && !issue.reproDescription) return null;
 
   return (
     <div className="repro-section">
+      {issue.playgroundLink && (
+        <a href={issue.playgroundLink} target="_blank" rel="noopener noreferrer" className="playground-link">
+          ▶ Open in Playground
+        </a>
+      )}
+      {issue.reproDescription && (
+        <details
+          open={showDescription}
+          onToggle={(e) => setShowDescription((e.target as HTMLDetailsElement).open)}
+        >
+          <summary className="repro-toggle">Repro Details</summary>
+          <div className="repro-description">
+            <Markdown>{issue.reproDescription}</Markdown>
+          </div>
+        </details>
+      )}
       {issue.reproCode && (
         <details open={expanded} onToggle={(e) => setExpanded((e.target as HTMLDetailsElement).open)}>
           <summary className="repro-toggle">Repro Code</summary>
@@ -59,6 +79,46 @@ function ReproSnippet({ issue }: { issue: TriageIssue }): JSX.Element | null {
   );
 }
 
+interface ActionButtonsProps {
+  issue: TriageIssue;
+  selectedCommands: Map<string, { command: string; label: string }>;
+  onToggle: (key: string, action: TriageAction, issueNumber: number) => void;
+}
+
+function ActionButtons({ issue, selectedCommands, onToggle }: ActionButtonsProps): JSX.Element {
+  const actions = issue.actions ?? [];
+
+  if (actions.length === 0) {
+    return <span className="action-text">{issue.suggestedAction}</span>;
+  }
+
+  const ACTION_CLASS: Record<string, string> = {
+    area: "action-btn action-btn-area",
+    comment: "action-btn action-btn-comment",
+    close: "action-btn action-btn-close",
+  };
+
+  return (
+    <div className="action-buttons">
+      {actions.map((action) => {
+        const key = `${issue.number}-${action.label}`;
+        const isSelected = selectedCommands.has(key);
+        return (
+          <button
+            key={action.label}
+            className={`${ACTION_CLASS[action.type] ?? "action-btn"}${isSelected ? " action-btn-selected" : ""}`}
+            title={action.command}
+            onClick={() => onToggle(key, action, issue.number)}
+          >
+            {isSelected ? "✓" : action.icon} {action.label}
+          </button>
+        );
+      })}
+      {issue.suggestedAction && <span className="action-text">{issue.suggestedAction}</span>}
+    </div>
+  );
+}
+
 export function IssueTable({ issues }: IssueTableProps): JSX.Element {
   const [sortField, setSortField] = useState<SortField>("number");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -66,6 +126,34 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
   const [filterVerification, setFilterVerification] = useState<string>("all");
   const [filterRepro, setFilterRepro] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [selectedCommands, setSelectedCommands] = useState<Map<string, { command: string; label: string }>>(new Map());
+  const [copied, setCopied] = useState(false);
+
+  const toggleCommand = useCallback((key: string, action: TriageAction, issueNumber: number) => {
+    setSelectedCommands((prev) => {
+      const next = new Map(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.set(key, { command: action.command, label: `#${issueNumber}: ${action.label}` });
+      }
+      return next;
+    });
+  }, []);
+
+  const copyAll = useCallback(() => {
+    const script = Array.from(selectedCommands.values())
+      .map((v) => v.command)
+      .join("\n");
+    navigator.clipboard.writeText(script).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [selectedCommands]);
+
+  const clearAll = useCallback(() => {
+    setSelectedCommands(new Map());
+  }, []);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -105,8 +193,8 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
     }
 
     result.sort((a, b) => {
-      const aVal = a[sortField];
-      const bVal = b[sortField];
+      const aVal = a[sortField] ?? 0;
+      const bVal = b[sortField] ?? 0;
       const cmp = typeof aVal === "number" ? aVal - (bVal as number) : String(aVal).localeCompare(String(bVal));
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -128,6 +216,7 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
           <option value="all">All Categories</option>
           <option value="bug">Bugs</option>
           <option value="feature-request">Feature Requests</option>
+          <option value="docs-bug">Docs Bugs</option>
           <option value="unknown">Unknown</option>
         </select>
         <select value={filterRepro} onChange={(e) => setFilterRepro(e.target.value)}>
@@ -136,6 +225,7 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
           <option value="generated">Generated</option>
           <option value="missing">Missing</option>
           <option value="unable-to-repro">Unable to Repro</option>
+          <option value="n/a">N/A</option>
         </select>
         <select value={filterVerification} onChange={(e) => setFilterVerification(e.target.value)}>
           <option value="all">All Verification</option>
@@ -166,6 +256,9 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
             <th className="sortable" onClick={() => handleSort("verification")}>
               Verification{sortIndicator("verification")}
             </th>
+            <th className="sortable" onClick={() => handleSort("triageDurationSeconds")}>
+              Duration{sortIndicator("triageDurationSeconds")}
+            </th>
             <th>Action</th>
           </tr>
         </thead>
@@ -190,21 +283,54 @@ export function IssueTable({ issues }: IssueTableProps): JSX.Element {
                     {l}
                   </span>
                 ))}
+                {issue.suggestedArea && !issue.labels.includes(issue.suggestedArea) && (
+                  <span className="label-tag label-tag-suggested" title="Suggested area">
+                    ✨ {issue.suggestedArea}
+                  </span>
+                )}
               </td>
               <td>
-                <Badge config={CATEGORY_BADGE[issue.category] ?? CATEGORY_BADGE.unknown} />
+                <Badge config={CATEGORY_BADGE[issue.category] ?? CATEGORY_BADGE["unknown"]} />
               </td>
               <td>
-                <Badge config={REPRO_BADGE[issue.reproStatus] ?? REPRO_BADGE.missing} />
+                <Badge config={REPRO_BADGE[issue.reproStatus] ?? REPRO_BADGE["missing"]} />
               </td>
               <td>
                 <Badge config={VERIFY_BADGE[issue.verification] ?? VERIFY_BADGE["not-verified"]} />
               </td>
-              <td className="action-cell">{issue.suggestedAction}</td>
+              <td className="duration-cell">
+                {issue.triageDurationSeconds != null && issue.triageDurationSeconds > 0
+                  ? `${issue.triageDurationSeconds}s`
+                  : "—"}
+              </td>
+              <td className="action-cell">
+                <ActionButtons
+                  issue={issue}
+                  selectedCommands={selectedCommands}
+                  onToggle={toggleCommand}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {selectedCommands.size > 0 && (
+        <div className="checkout-bar">
+          <span className="checkout-count">{selectedCommands.size} action{selectedCommands.size > 1 ? "s" : ""} selected</span>
+          <div className="checkout-items">
+            {Array.from(selectedCommands.entries()).map(([key, val]) => (
+              <span key={key} className="checkout-item">{val.label}</span>
+            ))}
+          </div>
+          <div className="checkout-actions">
+            <button className="checkout-clear" onClick={clearAll}>Clear</button>
+            <button className="checkout-copy" onClick={copyAll}>
+              {copied ? "✓ Copied!" : `📋 Copy ${selectedCommands.size} command${selectedCommands.size > 1 ? "s" : ""}`}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
